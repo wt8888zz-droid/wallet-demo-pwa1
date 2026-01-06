@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+
+  <!-- PWA / iOS 全屏关键 -->
+  <meta name="theme-color" content="#0b0f17" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Wallet Demo" />
+
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
+
+  <title>Wallet Demo</title>
+
+  <style>
+    :root{
+      --bg:#0b0f17; --card:#121a2a; --card2:#0f1626; --line:rgba(255,255,255,.10);
+      --text:#e7eefc; --mut:rgba(231,238,252,.65); --blue:#3b82f6;
+      --green:#22c55e; --red:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);}
+    .safe{padding:calc(16px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom)); max-width:520px; margin:0 auto;}
+    .top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
+    .title{font-size:18px; font-weight:800; margin:0;}
+    .muted{color:var(--mut); font-size:12px; line-height:1.4;}
+    .pill{padding:6px 10px; border-radius:999px; background:rgba(255,255,255,.08); font-size:12px;}
+    .card{background:linear-gradient(180deg, var(--card), var(--card2)); border:1px solid var(--line); border-radius:18px; padding:16px; box-shadow:0 12px 30px rgba(0,0,0,.25);}
+    .big{font-size:34px; font-weight:900; margin:10px 0 2px; letter-spacing:.2px;}
+    .row{display:flex; gap:10px;}
+    button{flex:1; padding:11px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.10); color:var(--text); font-weight:800;}
+    button.primary{background:var(--blue); border-color:transparent; color:#fff;}
+    button:disabled{opacity:.45}
+    .seg{display:flex; gap:8px; margin-top:12px;}
+    .seg button{flex:1; padding:10px 10px; border-radius:999px;}
+    .seg button.active{background:rgba(59,130,246,.25); border-color:rgba(59,130,246,.6);}
+    .list{margin-top:12px; display:flex; flex-direction:column; gap:10px;}
+    .item{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px; border-radius:16px; border:1px solid var(--line); background:rgba(255,255,255,.05);}
+    .left{display:flex; align-items:center; gap:10px; min-width:0;}
+    .icon{width:40px; height:40px; border-radius:14px; display:grid; place-items:center; background:rgba(255,255,255,.10); font-weight:900;}
+    .name{font-weight:900; font-size:14px; margin:0;}
+    .sub{margin:2px 0 0; font-size:12px; color:var(--mut);}
+    .right{text-align:right;}
+    .v1{font-weight:900;}
+    .v2{font-size:12px; color:var(--mut); margin-top:2px;}
+    .addr{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; word-break:break-all;}
+    .foot{margin-top:14px; text-align:center; color:rgba(231,238,252,.50); font-size:11px;}
+
+    /* 弹窗（首次免责声明 / 设置） */
+    .modalMask{position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:flex-end; padding:16px;}
+    .modal{width:100%; max-width:520px; margin:0 auto; background:linear-gradient(180deg, #121a2a, #0f1626); border:1px solid rgba(255,255,255,.12);
+      border-radius:18px; padding:14px; box-shadow:0 20px 60px rgba(0,0,0,.4);}
+    .modal h2{margin:6px 0 6px; font-size:16px;}
+    label{display:block; font-size:12px; color:rgba(231,238,252,.75); margin:12px 0 6px;}
+    input{width:100%; padding:11px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:#0b1220; color:var(--text); outline:none;}
+    .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+    .modalBtns{display:flex; gap:10px; margin-top:12px;}
+  </style>
+</head>
+
+<body>
+  <div class="safe">
+    <div class="top">
+      <div>
+        <h1 class="title">Wallet Demo</h1>
+        <div class="muted">PWA 全屏 · 本地演示数据 · 不连真实链</div>
+      </div>
+      <div class="pill" id="time"></div>
+    </div>
+
+    <div style="height:12px"></div>
+
+    <div class="card">
+      <div class="muted">总资产（演示）</div>
+      <div class="big" id="total">$0.00</div>
+      <div class="muted">展示地址：<span class="addr" id="addrShow"></span></div>
+
+      <div style="height:12px"></div>
+      <div class="row">
+        <button disabled>发送</button>
+        <button disabled>接收</button>
+        <button class="primary" id="openSettings">设置</button>
+      </div>
+
+      <div class="foot">提示：这是演示钱包，余额为本地输入值。</div>
+    </div>
+
+    <div class="seg">
+      <button class="active" id="tabAssets">资产</button>
+      <button id="tabAbout">关于</button>
+    </div>
+
+    <div id="pageAssets">
+      <div class="list" id="assetList"></div>
+    </div>
+
+    <div id="pageAbout" style="display:none; margin-top:12px;">
+      <div class="card">
+        <div class="muted">关于</div>
+        <h2 style="margin:8px 0 6px; font-size:16px;">这是一个“钱包风格 Demo App”</h2>
+        <div class="muted">
+          - 仅用于个人演示/截图/练习 UI。<br/>
+          - 不连接任何真实区块链，不生成交易，不代表真实资产。<br/>
+          - 不使用任何第三方钱包的名称、Logo 或版权界面素材。<br/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 首次免责声明弹窗 -->
+  <div class="modalMask" id="noticeMask">
+    <div class="modal">
+      <div class="muted">首次启动提示</div>
+      <h2>这是演示钱包（Demo）</h2>
+      <div class="muted">
+        本应用展示的余额/价格/地址均为你本地输入的演示数据，不代表链上真实资产，也不支持转账。
+      </div>
+      <div class="modalBtns">
+        <button class="primary" id="noticeOk">我知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置弹窗 -->
+  <div class="modalMask" id="settingsMask">
+    <div class="modal">
+      <div class="muted">设置（本地保存）</div>
+      <h2>自定义余额/价格</h2>
+
+      <label>展示地址（仅展示）</label>
+      <input id="addr" placeholder="0x...（随便填，仅展示）" />
+
+      <div class="grid2">
+        <div>
+          <label>BTC 余额</label>
+          <input id="btcBal" type="number" step="0.00000001" />
+        </div>
+        <div>
+          <label>BTC 单价（USD）</label>
+          <input id="btcPrice" type="number" step="0.01" />
+        </div>
+
+        <div>
+          <label>ETH 余额</label>
+          <input id="ethBal" type="number" step="0.00000001" />
+        </div>
+        <div>
+          <label>ETH 单价（USD）</label>
+          <input id="ethPrice" type="number" step="0.01" />
+        </div>
+
+        <div>
+          <label>USDT 余额</label>
+          <input id="usdtBal" type="number" step="0.00000001" />
+        </div>
+        <div>
+          <label>USDT 单价（USD）</label>
+          <input id="usdtPrice" type="number" step="0.01" />
+        </div>
+      </div>
+
+      <div class="modalBtns">
+        <button id="closeSettings" class="secondary">取消</button>
+        <button id="applySettings" class="primary">保存并应用</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const $ = (id)=>document.getElementById(id);
+  const fmt2 = (n)=> Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
+  const fmtCoin = (n)=> Number(n||0).toLocaleString(undefined,{minimumFractionDigits:0, maximumFractionDigits:8});
+
+  function setNow(){
+    $("time").textContent = new Date().toLocaleString();
+  }
+  setNow(); setInterval(setNow, 1000);
+
+  function randomAddr(){
+    const bytes = crypto.getRandomValues(new Uint8Array(20));
+    return "0x" + Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  const STORE_KEY = "wallet_demo_v1";
+
+  const defaultState = {
+    addr: randomAddr(),
+    assets: {
+      BTC: { bal: 0.5234, price: 43000 },
+      ETH: { bal: 8.12,   price: 3200  },
+      USDT:{ bal: 12680,  price: 1     }
+    }
+  };
+
+  function loadState(){
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return structuredClone(defaultState);
+    try{
+      const s = JSON.parse(raw);
+      // 基础容错
+      if(!s.addr) s.addr = randomAddr();
+      if(!s.assets) s.assets = structuredClone(defaultState.assets);
+      return s;
+    }catch{
+      return structuredClone(defaultState);
+    }
+  }
+
+  function saveState(s){
+    localStorage.setItem(STORE_KEY, JSON.stringify(s));
+  }
+
+  function calcTotalUSD(s){
+    let t = 0;
+    for (const k of Object.keys(s.assets)){
+      const a = s.assets[k];
+      t += Number(a.bal||0) * Number(a.price||0);
+    }
+    return t;
+  }
+
+  function render(){
+    const s = loadState();
+    $("addrShow").textContent = s.addr;
+    $("total").textContent = `$${fmt2(calcTotalUSD(s))}`;
+
+    const list = $("assetList");
+    list.innerHTML = "";
+
+    const order = ["BTC","ETH","USDT"];
+    for(const sym of order){
+      const a = s.assets[sym];
+      const usd = Number(a.bal||0) * Number(a.price||0);
+
+      const item = document.createElement("div");
+      item.className = "item";
+      item.innerHTML = `
+        <div class="left">
+          <div class="icon">${sym[0]}</div>
+          <div style="min-width:0">
+            <p class="name">${sym}</p>
+            <p class="sub">${fmtCoin(a.bal)} ${sym}</p>
+          </div>
+        </div>
+        <div class="right">
+          <div class="v1">$${fmt2(usd)}</div>
+          <div class="v2">$${fmt2(a.price)} / ${sym}</div>
+        </div>
+      `;
+      list.appendChild(item);
+    }
+  }
+
+  // tabs
+  $("tabAssets").onclick = ()=>{
+    $("tabAssets").classList.add("active");
+    $("tabAbout").classList.remove("active");
+    $("pageAssets").style.display = "";
+    $("pageAbout").style.display = "none";
+  };
+  $("tabAbout").onclick = ()=>{
+    $("tabAbout").classList.add("active");
+    $("tabAssets").classList.remove("active");
+    $("pageAssets").style.display = "none";
+    $("pageAbout").style.display = "";
+  };
+
+  // 首次免责声明（只弹一次）
+  (function firstNotice(){
+    const k = "wallet_demo_notice_once_v1";
+    if(localStorage.getItem(k)==="1") return;
+    $("noticeMask").style.display = "flex";
+    $("noticeOk").onclick = ()=>{
+      localStorage.setItem(k,"1");
+      $("noticeMask").style.display = "none";
+    };
+  })();
+
+  // settings modal
+  function openSettings(){
+    const s = loadState();
+    $("addr").value = s.addr || "";
+    $("btcBal").value = s.assets.BTC.bal ?? 0;
+    $("btcPrice").value = s.assets.BTC.price ?? 0;
+    $("ethBal").value = s.assets.ETH.bal ?? 0;
+    $("ethPrice").value = s.assets.ETH.price ?? 0;
+    $("usdtBal").value = s.assets.USDT.bal ?? 0;
+    $("usdtPrice").value = s.assets.USDT.price ?? 0;
+
+    $("settingsMask").style.display = "flex";
+  }
+
+  $("openSettings").onclick = openSettings;
+  $("closeSettings").onclick = ()=> $("settingsMask").style.display = "none";
+  $("applySettings").onclick = ()=>{
+    const s = loadState();
+    s.addr = ($("addr").value || randomAddr()).trim();
+    s.assets.BTC.bal = Number($("btcBal").value || 0);
+    s.assets.BTC.price = Number($("btcPrice").value || 0);
+    s.assets.ETH.bal = Number($("ethBal").value || 0);
+    s.assets.ETH.price = Number($("ethPrice").value || 0);
+    s.assets.USDT.bal = Number($("usdtBal").value || 0);
+    s.assets.USDT.price = Number($("usdtPrice").value || 0);
+
+    saveState(s);
+    $("settingsMask").style.display = "none";
+    render();
+  };
+
+  // SW 注册（离线缓存）
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  }
+
+  render();
+</script>
+</body>
+</html>
